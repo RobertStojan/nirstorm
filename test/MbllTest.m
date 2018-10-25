@@ -41,8 +41,10 @@ classdef MbllTest < matlab.unittest.TestCase
             hb_extinctions = process_nst_mbll('get_hb_extinctions', wavelengths);
             i_light_ref = 1e6;
             
-            y_baseline = mbll_fwd(i_light_ref, hb_0, hb_extinctions, age, separation, pvf);
-            y_activ = mbll_fwd(i_light_ref, hb_0 + delta_hb, hb_extinctions, age, separation, pvf);
+            dpf_method = process_nst_mbll('get_dpf_method_choices');
+            
+            y_baseline = mbll_fwd(i_light_ref, hb_0, hb_extinctions, age, separation, pvf, dpf_method.DUNCAN1996);
+            y_activ = mbll_fwd(i_light_ref, hb_0 + delta_hb, hb_extinctions, age, separation, pvf, dpf_method.DUNCAN1996);
             
             dt = 0.1; %sec
             nb_samples = 1000;
@@ -59,7 +61,7 @@ classdef MbllTest < matlab.unittest.TestCase
             sOutput = bst_process('CallProcess', 'process_nst_mbll', sRaw, [], ...
                                   'option_age',             age, ...
                                   'option_pvf',             pvf, ...
-                                  'option_dpf_method', 2, ... % Ducan
+                                  'option_dpf_method', 2, ... % Duncan
                                   'option_baseline_method', 1, ...  % mean
                                   'timewindow', [0 (activ_window_samples(1)-2)*dt], ...
                                   'option_do_plp_corr',     1);
@@ -124,11 +126,25 @@ classdef MbllTest < matlab.unittest.TestCase
     
 end
 
-function i_light_output = mbll_fwd(i_light_ref, concentrations, extinctions, age, separation, pvf)
+function i_light_output = mbll_fwd(i_light_ref, concentrations, extinctions, age, separation, pvf, dpf_method)
+
+dpf_method = process_nst_mbll('get_dpf_method_choices');
+
+% for wavelength [690, 832]
 y0 = [5.38;4.67];
 a1 = [0.049;0.062];
 a2 = [0.877;0.819];
-dpf = y0 + a1 .* age.^a2; %checked that dfp was OK
+dpf_Duncan = y0 + a1 .* age.^a2; %checked that dfp was OK
+
+
+switch dpf_method
+    case dpf_method.SCHOLKMANN2013
+        dpf = dpf_Scholkmann;
+    case dpf_method.DUNCAN1996
+        dpf = dpf_Duncan;
+    otherwise
+        disp('Error');
+end
 i_light_output = i_light_ref * power(repmat(10,2,1), -separation .* extinctions * concentrations .* dpf / pvf);
 end
 
